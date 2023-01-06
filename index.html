@@ -1,0 +1,61 @@
+<form id="send-form">
+    <input name="new-message" type="text" />
+    <button name="send-message" type="submit">Send</button>
+</form>
+<ul id="message-list"></ul>
+
+<script>
+    // ************************************** NOTE **************************************
+    // Because my focus for this project is to write a GO server, the code below is lazy.
+    // In serious projects, I strictly use only TypeScript.
+    // **********************************************************************************
+
+    const messageList = document.querySelector('#message-list');
+    const sendForm = document.querySelector('#send-form');
+    const newMessageBox = sendForm['new-message'];
+    const sendMessageButton = sendForm['send-message'];
+
+    const createMessageBox = ({ message, time }) => {
+        const li = document.createElement('li');
+        // undefined here will make the format default to the client's browser's default locale
+        li.innerText = `${message} ${new Intl.DateTimeFormat(undefined, {
+            // use the client's default timezone
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            hour: 'numeric',
+            minute: 'numeric',
+            day: 'numeric',
+            month: 'numeric',
+        }).format(new Date(time))}`;
+        return li;
+    };
+
+    sendForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const message = newMessageBox.value.trim();
+        if (!message) return;
+
+        sendMessageButton.disabled = true;
+
+        // Send a post request with the JSON data for the message
+        // Fetch seemed to be having some issues so raw XHR it is
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'http://localhost:3000/message', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({ message }));
+        xhr.addEventListener('load', ({ currentTarget }) => {
+            sendMessageButton.disabled = false;
+            newMessageBox.value = '';
+        });
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const events = new EventSource('http://localhost:3000/events');
+
+        events.addEventListener('message', (e) => {
+            const messageData = JSON.parse(e.data);
+
+            messageList.prepend(createMessageBox(messageData));
+        });
+    });
+</script>
